@@ -1,0 +1,711 @@
+---
+title: <center>Análise Exploratória dos Dados da Pesquisa Origem e Destino 2007 na
+  Região Metropolitana de São Paulo utilizando a Linguagem R</center>
+author: "<center> [Vagner Sanches Vasconcelos](https://www.linkedin.com/in/vsvasconcelos/)</center>"
+date: "<center> 29 de março de 2017 </center>"
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 7
+    number_sections: yes
+    theme: journal
+    toc: yes
+  pdf_document: default
+---
+*______________________________________________________________________________________________________________________*  
+
+__Resumo__    
+<p style="text-align: justify;"> Este relatório apresenta os resultados da análise [exploratória dos dados](https://pt.wikipedia.org/wiki/An%C3%A1lise_explorat%C3%B3ria_de_dados) da Pesquisa Origem e Destino (Pesquisa O/D) de 2007 na Região Metropolitana de São Paulo (RMSP); a análise foi realizado com auxílio do software de cálculos estatísticos [R Project](https://pt.wikipedia.org/wiki/R_(linguagem_de_programa%C3%A7%C3%A3o)). A base de dados está disponível no [site](http://www.metro.sp.gov.br/metro/arquivos/OD2007/spss.zip) do Metrô-SP, nos formatos Dbase e SPSS, sendo utilizado neste trabalho a versão no formato do SPSS (.sav). A base possui 196.698 registros de 123 variáveis. Foram realizados analises univariadas, bivariadas e multivariadas na base de dados da pesquisa, de forma a obter informações ocultas em sua estrutura, e descobrir variáveis importantes e suas correlações. Um dos principais achados foi que trabalho e educação são os principais fatores geradores de demanda de viagens na RMSP.</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(haven)
+library(ggmap)
+library(scales)
+library(dplyr)
+library(tidyr)
+library(gridExtra)
+library(GGally)
+library(psych)
+library(grid)
+library(memisc)
+library(ggthemes)
+library(grid)
+library(foreign)
+library(RColorBrewer)
+library(descr)
+library(plyr)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Carrega_dados}
+OD_2007_v2d <- read.spss("OD_2007_v2d.sav", to.data.frame = TRUE)
+```
+
+#__Introdução__  
+<p style="text-align: justify;"> Segundo [METRÔ (2008)](http://www.metro.sp.gov.br/metro/arquivos/OD2007/sintese-od2007.pdf), a Pesquisa O/D é realizada desde 1967 na RMSP, com periodicidade de dez anos, e tem por objetivo o levantamento de informações atualizadas sobre as viagens realizadas pela população desta região em dia útil típico. Constitui-se no principal instrumento de coleta de informações sobre viagens, servindo de base para os estudos de planejamento de transporte. A pesquisa de 2007 ocorreu no período de agosto a novembro deste ano, e fevereiro a abril de 2008, envolvendo cerca de 370 pesquisadores; foram visitados 54.500 domicílios, resultando em aproximadamente 30.000 domicílios com entrevistas consideradas válidas para a pesquisa; isto nos 39 municípios da [RMSP](https://www.openstreetmap.org/relation/2661855), que foram subdivididos em 460 zonas de pesquisa.     
+A amostra de 30.000 domicílios permitiu conferir a pesquisa margens de erro inferiores a 5% e nível de confiança de 95%.       
+A descrição completa de todas as variáveis pode ser acessada [aqui](http://nbviewer.jupyter.org/github/vsvasconcelos/EDA-R/blob/master/layout_2007_v2d.html).</p>
+
+# __Seção de Gráficos Univariados__
+A base de dados apresenta as seguintes dimensões: (registros - variáveis):
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, dimensoes_base}
+dim(OD_2007_v2d)
+```
+Abaixo tem-se a estrutura destas variáveis: 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, variaveis}
+str(OD_2007_v2d)
+```
+<p style="text-align: justify;">Conforme saída do comando acima, as 123 variáveis da base são de um dos 3 tipos a saber: numéricas (num), ex.: zona; Factor, ex.: muni_dom; ou vetores atomic, ex.: muniesc.                        
+Segundo [Fávaro et al. (2009)](https://scholar.google.com.br/scholar?hl=pt-BR&as_sdt=0,5&cluster=12103570380505974351) as variáveis podem ser classificadas em: __variáveis não métricas__ (qualitativas, categóricas): permitem apenas a análise de frequências, sem a possibilidade do cálculo de medidas de posição e de dispersão, __exceto a moda__; e __variáveis métricas__ (quantitativas): são representadas por valores que podem ser tratados com o intuito do cálculo de medidas de posição (ex. média) ou dispersão (ex. desvio padrão). Podem ser discretas (ex. número de filhos) ou contínuas (ex. salário).    
+Ao contrário das variáveis qualitativas, as métricas suportam um número bem maior de representações gráficas, tais como: gráficos de dispersão, de linha, etc; bem como o cálculo de correlações entre variáveis deste tipo.       
+Com isto, temos na base em análise variáveis qualitativas, ex.: muni_dom e quantitativas, ex.: zona. Para as variáveis do tipo atomic, é necessário verificar qual o tipo primitivo dos dados do vetor para classificá-lo.      
+Quais são as variáveis qualitativas (factor)?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_quali}
+Var_quali <- Filter(is.factor, OD_2007_v2d)
+names(Var_quali)
+```
+Quais são as variáveis numéricas (num)?
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_numericas}
+Var_num <- Filter(is.numeric, OD_2007_v2d)
+names(Var_num)
+```
+Na sequência tem-se um sumário de algumas estatísticas básicas das variáveis numéricas:
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_quanti_summario}
+summary(Var_num)
+```
+<p style="text-align: justify;"> Não necessariamente uma variável numérica é uma variável quantitativa, ex.: a variável "zona" apesar de numérica é uma variável qualitativa, uma vez que cada número de 1 a 460 representa uma [zona do domicílio](https://nbviewer.jupyter.org/github/vsvasconcelos/EDA-R/blob/master/ZonasTrafego_Municipios.html).     
+Como exemplo de variável quantitativa temos a variável "distancia", cujo valor mínimo foi 1,28m e máximo pouco mais de 84Km, sendo a média cerca de 5,2Km.      
+Qual o comportamento da distância percorrida diariamente pelos entrevistados?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, plot_distancia}
+ggplot(aes(x = distancia),
+       data = OD_2007_v2d) +
+       geom_histogram()+
+  labs(title = "Fig. 1: Distância total percorrida por dia, em [m]")
+```
+<p style="text-align: justify;"> A distância parece ser uma variável do tipo "cauda longa", como em uma distribuição [exponencial negativa](https://pt.wikipedia.org/wiki/Distribui%C3%A7%C3%A3o_exponencial).     
+Será que aplicando a função logarítmica poderíamos entender melhor essa variável? </p>  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, plot_distanciaLog}
+ggplot(OD_2007_v2d, aes(x = distancia)) + 
+      geom_histogram() +
+      scale_x_log10() +
+  labs(title = 
+         "Fig. 2: Logaritmo da Distância total percorrida por dia, em [m]")
+```
+<p style="text-align: justify;"> Com essa transformação, a variável distância parece ser uma distribuição [assimétrica negativa](https://pt.wikipedia.org/wiki/Ficheiro:Distribui%C3%A7%C3%A3o_Assim%C3%A9trica_Negativa.gif), com o pico da ordem de 8Km.       
+Como é a distribuição das viagens?</p>  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, plot_numero_viagem}
+ggplot(aes(x = n_viag),
+       data = subset(OD_2007_v2d, !is.na(n_viag)))+
+  geom_bar()+
+  labs(title = "Fig. 3: Número de viagens realizadas por dia")
+```
+<p style="text-align: justify;">A grande maioria utiliza uma ou duas viagens diariamente.       
+Qual a classe social dos respondentes?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, ClasseSocial}
+ggplot(aes(x = criterio_b),
+       data= OD_2007_v2d)+
+  geom_bar()+
+  labs(title = "Fig. 4: Classe social dos respondentes")
+```
+<p style="text-align: justify;">Essa variável parece ter uma distribuição normal, sendo a Classe B2 a moda.       
+Quais seriam os motivos das viagens?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Motivo_Viagem}
+ggplot(aes(x = motivo_o),
+       data = OD_2007_v2d)+
+  geom_bar()+
+  labs(title = "Fig. 5: Motivos da Viagem")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.3))
+```
+<p style="text-align: justify;"> O motivo Trabalho foi desmembrado pelo tipo de atividade econômica (Indústria, Comércio e Serviço), os valores comprovam a força do setor de serviços em São Paulo; um número considerável - da mesma ordem da Educação - não informou o motivo (NA).                 
+Parece que Trabalho e Educação são os principais fatores geradores de demanda de transporte na RMSP.          
+Na Fig. 2 temos a distância percorrida, mas quanto será os gastos de tempo (duração) nestas viagens?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, DuracaoViagem}
+ggplot(OD_2007_v2d, aes(duracao))+
+       geom_freqpoly()+
+  scale_x_continuous(limits = c(0,max(OD_2007_v2d$duracao)))+
+  labs(title = "Fig. 6: Duração da viagem, em [m]")
+```
+<p style="text-align: justify;"> A curva é tem um pico (moda da duração) por volta de 20 minutos, depois sempre cai, mas também sempre com um repique (aproximadamente 35, 60, 90, 125, 160), muito interessante esse fenômeno, como explicá-lo?                                        
+Qual o modal de transporte utilizado para fazer as viagens?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, ModoPrincipal}
+ggplot(aes(x = modoprin),
+       data = OD_2007_v2d)+
+  geom_bar()+
+  labs(title = "Fig. 7: Principal Modo de Viagem")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.3))
+```
+<p style="text-align: justify;"> Os modos principais mais utilizados são: a pé; automóvel; ônibus em várias modalidades, com destaque para os municipais de SP; carona; Metrô e Trem. Também há um grande número que não informaram.     
+A quantidade de pessoas a pé chama a atenção, havia uma questão interessante no questionário: Por que viajou a pé ou de bike?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Porque_ApeBike}
+ggplot(aes(x = pe_bici),
+       data = OD_2007_v2d)+
+  geom_bar()+
+  labs(title = "Fig. 8: Por que viajou a pé ou de bike")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.3))
+```
+<p style="text-align: justify;"> A grande maioria não respondeu (NA), vamos exclui-los para melhorar a visualização.</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Porque_ApeBike_semNA}
+ggplot(aes(x = pe_bici),
+       data = subset(OD_2007_v2d, !is.na(pe_bici)))+
+       geom_bar()+
+  labs(title = "Fig. 9: Por que viajou a pé ou de bike, sem os NAs")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.3))
+```
+<p style="text-align: justify;"> A grande maioria optou por ir a pé devido a pequena distância da viagem.       
+Como a pesquisa foi distribuída na RMSP em relação as zonas do domicílio, do trabalho e da escola?       
+Todas as Zonas do domicílio e municípios podem ser acessados [aqui](https://nbviewer.jupyter.org/github/vsvasconcelos/EDA-R/blob/master/ZonasTrafego_Municipios.html).</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, TodasZonas}
+p1 <- ggplot(OD_2007_v2d, aes(zona))+
+       geom_freqpoly()+
+  labs(title = "Zonas do Domicílio")
+
+p2 <- ggplot(OD_2007_v2d, aes(zonatra1))+
+       geom_freqpoly()+
+  labs(title = "Zonas do Primeiro Trabalho")
+
+p3 <- ggplot(OD_2007_v2d, aes(zonatra2))+
+       geom_freqpoly()+
+  labs(title = "Zonas do Segundo Trabalho")
+
+p4 <- ggplot(OD_2007_v2d, aes(zona_esc))+
+      geom_freqpoly()+
+  labs(title = "Zonas da Escola")
+
+grid.arrange(p1,p2,p3,p4, ncol = 2,
+             top = textGrob("Fig. 10: Amostras por zonas",
+                          gp = gpar(fontsize=15,font=8),
+                          just = "right"))
+```
+<p style="text-align: justify;"> As regiões com maior número de amostras por zona do domicílio ocorreu por volta da zona 80 (Jardim Paulistano, Jardim Europa e Pinheiros) e zona 300 (Paraisópolis, Vila Suzana e Parque Arariba), todas na Cidade de São Paulo; já as zonas com menores amostragem foram as imediações da 460 (cidades de: Santana de Parnaíba e Pirapora do Bom Jesus) e 350 (Arujazinho, Arujá e Fazenda Velha), no município de Arujá. Seria interessante ver essas amostras num mapa, seria possível?  
+A região que mais gera empregos (primeiro trabalho) fica no entorno da zona 80 (Jardim Paulistano, Jardim Europa e Pinheiros); do lado oposto a que gera menos oportunidades é a 350 (Arujazinho, Arujá e Fazenda Velha), no município de Arujá).     
+O gráfico do Segundo Trabalho é bem parecido com o do Primeiro, contudo, agora tem-se por volta da região 60 até 80 como as que mais geram empregos; do lado oposto continua a região 350.    
+Com relação a educação, o destaque positivo é para o entorno da região 30 (Masp, Higienópolis e Vila Buarque); já os destaques negativos são as zonas 350 (Arujá), e 450 a 460, envolvendo os municípios de Jandira, Cotia, Vargem Grande Paulista, Itapevi, Santana do Parnaíba e Pirapora do Bom Jesus.
+Especialmente com relação a geração de oportunidades de trabalho, é possível notar um grande desequilíbrio tendendo favoravelmente para as zonas entre 70 e 90; para a educação isso também acontece, contudo, a predominância não é tão grande.
+Conforme a Fig. 5, trabalho e educação são os principais motivos de viagens, assim, é de se esperar que as zonas no entorno da 80 (Clínicas, Oscar Freire, Trianon, Jardim Paulistano, Jardim Europa, Pinheiros, Vila Madalena, PUC, Cardoso de Almeida, Zequinha de Abreu) sejam as que mais demandam viagens. </p>
+
+<p style="text-align: justify;">Para entender melhor como os principais fatores geradores de demanda de viagens (trabalho e educação) se comportam nas 460 zonas do domicílio foram selecionadas inicialmente 9 variáveis, sendo elas:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis}
+OD_subset <- subset(OD_2007_v2d, select = c(zona, zona_esc, zonatra1,
+                                            zonatra2, n_viag,
+                                            duracao, modoprin,
+                                            distancia, criterio_b))
+names(OD_subset)
+```
+<p style="text-align: justify;">  Lembrando que a descrição completa de todas as variáveis pode ser acessada [aqui](http://nbviewer.jupyter.org/github/vsvasconcelos/EDA-R/blob/master/layout_2007_v2d.html).      
+Com isto, podemos classificar as 9 variáveis selecionadas, sendo as qualitativas:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_NaoMetricas}
+OD_subset_NMetrica <- subset(OD_2007_v2d, select = c(zona, zona_esc, zonatra1,
+                                                     zonatra2, modoprin,
+                                                     criterio_b))
+names(OD_subset_NMetrica)
+```
+<p style="text-align: justify;">E as quantitativas:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_Metricas}
+OD_subset_Metrica <- subset(OD_2007_v2d, select = c(n_viag,
+                                                    duracao, distancia))
+names(OD_subset_Metrica)
+```
+<p style="text-align: justify;"> Conforme abordado anteriormente, para as __variáveis não métricas só é possível determinar a sua moda__. Abaixo tem-se as frequências ordenadas na ordem decrescente - apresentando as 3 primeiras e as 3 últimas - sendo, a primeira - isto é, a maior de frequência a __moda da variável__.    
+Para a variável zona:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_Zona}
+Freq_zona <- as.data.frame(table(OD_subset_NMetrica$zona))
+names(Freq_zona) <- c("zona", "Freq")
+moda_zona <- subset(Freq_zona$zona, Freq_zona$Freq == max(Freq_zona$Freq))
+moda_zona <- arrange(Freq_zona, desc(Freq), zona)
+head(moda_zona, 3)
+tail(moda_zona, 3)
+```
+<p style="text-align: justify;"> Portando, para a variável "zona", a moda é a zona de número 95 (Alto de Pinheiros) com 1559 registros; já a zona 450 (Ribeirão das Pombas) obteve o menor número de registros, sendo 187.    
+Para a variável zona escolar(zona_esc):</p>     
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_Zona_esc}
+Freq_zona_esc <- as.data.frame(table(OD_subset_NMetrica$zona_esc))
+names(Freq_zona_esc) <- c("zona_esc", "Freq")
+moda_zona_esc <- subset(Freq_zona_esc$Zona_esc,
+                        Freq_zona_esc$Freq == max(Freq_zona_esc$Freq))
+moda_zona_esc <- arrange(Freq_zona_esc, desc(Freq), zona_esc)
+head(moda_zona_esc, 3)
+tail(moda_zona_esc, 3)
+```
+<p style="text-align: justify;">Portando, para a variável zona escolar, a moda é a zona de número 31 (Vila Buarque) com 1151 registros.                       
+Para a variável zona de trabalho 1(zonatra1):</p>     
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_Zona_Trabalho1}
+Freq_zonatra1 <- as.data.frame(table(OD_subset_NMetrica$zonatra1))
+names(Freq_zonatra1) <- c("zonatra1", "Freq")
+moda_zonatra1 <- subset(Freq_zonatra1$zonatra1,
+                        Freq_zonatra1$Freq == max(Freq_zonatra1$Freq))
+moda_zonatra1 <- arrange(Freq_zonatra1, desc(Freq), zonatra1)
+head(moda_zonatra1,3)
+tail(moda_zonatra1,3)
+```
+<p style="text-align: justify;">  Portando, para a variável zona de trabalho 1, a moda é a zona de número 5 (República) com 1768 registros.                
+Para a variável zona de trabalho 2 (zonatra2):</p>   
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_Zona_Trabalho2}
+Freq_zonatra2 <- as.data.frame(table(OD_subset_NMetrica$zonatra2))
+names(Freq_zonatra2) <- c("zonatra2", "Freq")
+moda_zonatra2 <- subset(Freq_zonatra2$zonatra2,
+                        Freq_zonatra2$Freq == max(Freq_zonatra2$Freq))
+moda_zonatra2 <- arrange(Freq_zonatra2, desc(Freq), zonatra2)
+head(moda_zonatra2,3)
+tail(moda_zonatra2,3)
+```
+<p style="text-align: justify;"> Portando, para a variável zona de trabalho 2, a moda é a zona de número 76 (Clínicas) com 54 registros.                         
+Para a variável modo principal (modoprin):</p>   
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_ModoPrincipal}
+Freq_modoprin <- as.data.frame(table(OD_subset_NMetrica$modoprin))
+names(Freq_modoprin) <- c("modoprin", "Freq")
+moda_modoprin <- subset(Freq_modoprin$modoprin,
+                        Freq_modoprin$Freq == max(Freq_modoprin$Freq))
+arrange(Freq_modoprin, desc(Freq), modoprin)
+```
+<p style="text-align: justify;">Portando, para a variável "modoprin", a moda é o modal de transporte "A pé" com 49715 registros.    
+Para a variável Critério de Classificação Econômica Brasil (criterio_b):</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Moda_criterio_b}
+Freq_criterio_b <- as.data.frame(table(OD_subset_NMetrica$criterio_b))
+names(Freq_criterio_b) <- c("criterio_b", "Freq")
+moda_criterio_b <- subset(Freq_criterio_b$mcriterio_b,
+                          Freq_criterio_b$Freq == max(Freq_criterio_b$Freq))
+arrange(Freq_criterio_b, desc(Freq), criterio_b)
+```
+<p style="text-align: justify;">Portando, para a variável criterio_b, a moda é a classe social B2 com 46313 registros.  
+Já para as variáveis métricas podemos calcular várias outras estatísticas, tais como:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Descritiva_variaveis_metricas}
+describe(OD_subset_Metrica)
+```
+<p style="text-align: justify;">E ainda verificar suas correlações, conforme abaixo:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Variaveis_Correlacoes}
+corr.test(OD_subset_Metrica, use = "pairwise.complete.obs")
+```
+<p style="text-align: justify;">Conforme saída acima, a correlação mais significante é entre as variáveis "duração" e "distancia", com valor de 0,65.</p>
+
+## __Análise Univariada__
+
+### Qual é a estrutura do conjunto de dados?
+<p style="text-align: justify;"> A base possui 196.698 registros de 123 variáveis socioeconômicas de moradores da RMSP, sendo que uma descrição completa de todas elas pode ser acessada [aqui](http://nbviewer.jupyter.org/github/vsvasconcelos/EDA-R/blob/master/layout_2007_v2d.html).       
+Os principais motivos das viagens são o trabalho ou a educação, sendo os principais modais das viagens o a pé, automóvel, ônibus, metrô e trem, nesta ordem.      
+Notou-se um grande desequilíbrio na oferta de oportunidades de trabalho e educação, sendo a região no entorno da zona 80 o destaque positivo.</P>
+
+### Quais são os principais atributos de interesse deste conjunto de dados?
+<p style="text-align: justify;"> Como trabalho e educação parecem ser os principais fatores geradores de demanda de viagens, quero entender melhor como essas variáveis se comportam nas 460 zonas do domicílio</p>
+
+### Quais outros atributos você acha que podem lhe auxiliar na investigação destes atributos de interesse?
+<p style="text-align: justify;"> As distâncias, tempo e número de viagens realizadas, bem como a categorização social dos passageiros.</p>
+
+### Você criou variáveis a partir dos atributos existentes no conjunto de dados?
+Não.
+  
+### Dos atributos investigados, distribuições incomuns foram encontradas? Você aplicou operações nos dados para limpá-los, ajustá-los ou mudar a forma dos dados? Se sim, por quê?
+<p style="text-align: justify;"> Sim, por exemplo, foi verificado que a variável "distancia" possuía cauda longa, com isso, foi realizado transformação logarítmica no eixo x para melhorar a sua visualização.</p>
+
+# __Seção de Gráficos Bivariados__
+<p style="text-align: justify;"> Como as classes sociais estão distribuídas nas zonas tráfego?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Zona_ClasseSocial}
+ggplot(data = OD_2007_v2d, aes(x = zona))+
+  geom_density(aes(fill = criterio_b), position = "stack")+
+  labs(title = "Fig. 11: KDE zona de domicílio por classe social")
+```
+<p style="text-align: justify;"> Conforme ilustrado no gráfico de [KDE - kernel density estimate](https://pt.wikipedia.org/wiki/Estimativa_de_densidade_kernel) acima, as classes mais abastadas (A1 e A2) possuem picos bem caracterizados ao redor das zonas 75 e 290.             
+Como as classes sociais estão distribuídas nas zonas escolares?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Zona_esc_ClasseSocial}
+ggplot(data = OD_2007_v2d, aes(x = zona_esc))+
+  geom_density(aes(fill = criterio_b), position = "stack")+
+  labs(title = "Fig. 12: KDE zona escolar por classe social")
+```
+<p style="text-align: justify;"> Novamente nota-se o desequilíbrio do lado esquerdo do gráfico, com pico no entorno da zona 45; e ainda mais 3 picos menos nos entornos das zonas 175, 300 e 380.    
+Como as classes sociais estão distribuídas nas zonas de trabalho?</p> 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, ZonaTrab1_ClasseSocial}
+ggplot(data = OD_2007_v2d, aes(x = zonatra1))+
+  geom_density(aes(fill = criterio_b), position = "stack")+
+  labs(title = "Fig. 13: KDE zona de trabalho por classe social")
+```
+<p style="text-align: justify;"> Gráfico bastante parecido com o da Fig. 11 - KDE da zona de domicílio por classe social.      
+Como é o deslocamento das pessoas para trabalhar?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_ZonaTrab1}
+ggplot(aes(x = zona, y = zonatra1), data = OD_2007_v2d) +
+  geom_point()+
+  labs(title =
+         "Fig. 14: Diagramas de dispersão zona domicílio x zona de trabalho")
+```
+<p style="text-align: justify;">A visualização não está muito boa, vamos tentar melhorá-la aplicando um [alpha](https://www.youtube.com/watch?v=JqyUT7RbvgI) = 1/10. </p> 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_ZonaTrab1_Overplotting}
+ggplot(aes(x = zona, y = zonatra1), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/10)+
+  geom_smooth(method ='lm', color ='red')+
+  geom_abline(xintercept = 460, yintercept = 460, color ='green',size = 1)+
+  labs(title =
+         "Fig. 15: Diag. disper. zonas do domicílio x de trabalho c/ filtro")
+```
+<p style="text-align: justify;">A curva verde seria o ideal, todos trabalhando na mesma zona de domicílio, minimizando a necessidade de transporte (viagens). A curva vermelha é um modelo linear que representa o fenômeno.    
+Como é o descolamento das pessoas para trabalhar, agora em função da classe social?</p> 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_ZonaTrab1_Overplotting_classeSocial}
+ggplot(aes(x = zona, y = zonatra1), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/5)+
+  facet_wrap(~ criterio_b)+
+  geom_abline(xintercept = 460, yintercept = 460, color ='green', size = 1)+
+  geom_smooth(method ='lm', color ='red')+
+  labs(title=
+         "Fig. 16: Diagr. de dispersão zona x zona de trab. por classe social")
+```
+<p style="text-align: justify;"> Observando o desalinhamento das curvas (verde e vermelha) quanto maior a classe social, estas estão mais desalinhadas, o que indica que as classes mais abastadas se deslocam mais de zonas para trabalhar. Isto parece ir contra ao senso comum, necessário mais investigações.               
+Como é o descolamento das pessoas para estudar?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zoan_zona_esc}
+ggplot(aes(x = zona, y = zona_esc), data = OD_2007_v2d) +
+  geom_point()+
+  labs(title = "Fig. 17: Diagramas de dispersão zona x zona de escolar")
+```
+<p style="text-align: justify;">É possível verificar neste gráfico uma concentração de pontos formando uma reta a 45º, seria a curva ideal. Vamos plotar a curva ideal, o modelo de regressão e incluir o grau de instrução ("estuda") para tentar melhorar a visualização.</p> 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_Zona_esc_Overplotting}
+ggplot(aes(x = zona, y = zona_esc), data = OD_2007_v2d) +
+  geom_jitter(aes(color = estuda))+
+  geom_smooth(method ='lm', color ='red')+
+  geom_abline(xintercept = 460, yintercept = 460, color ='pink', size = 1)+
+  labs(title =
+ "Fig. 18: Diag. de dispersão zona x zona de trab.por classe social com filtro")
+```
+<p style="text-align: justify;"> Comparado com a Fig. 15, que trata da variável zona de trabalho, para estudar observa-se um desequilíbrio menor em relação aos deslocamentos necessários. Contudo, observa-se no entorno da curva ideal as escolaridades mais baixas, já o 3ºgrau/Superior está mais afastado do ideal, isto é, este grupo se desloca mais para estudar.
+Vamos observar as curvas de dispersão para trabalhar e para estudar lado a lado.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_Zona_esc_zonatra1}
+p1 <- ggplot(aes(x = zona, y = zonatra1), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/10)+
+  geom_smooth(method ='lm', color ='red')+
+  geom_abline(xintercept = 460, yintercept = 460, color ='green',size = 1)
+
+p2 <- ggplot(aes(x = zona, y = zona_esc), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/10)+
+  geom_smooth(method ='lm', color ='red')+
+  geom_abline(xintercept = 460, yintercept = 460, color ='green',size = 1)
+
+grid.arrange(p1, p2, ncol=2,
+             top=textGrob("Fig. 19: Diag. de dispersão Zonas Trab. e Escola",
+                          gp = gpar(fontsize = 15,font = 8), just = "center"))
+```
+<p style="text-align: justify;">Fica evidente o desalinhamento maior para a variável zona de trabalho "zonatra1".     
+Como é o descolamento das pessoas para estudar, agora em função da classe social?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, zona_Zona_esc_Overplotting_classeSocial}
+ggplot(aes(x = zona, y = zona_esc), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/5)+
+  facet_wrap(~ criterio_b)+
+  geom_abline(xintercept = 460, yintercept = 460, color ='green',size = 1)+
+  geom_smooth(method ='lm', color ='red')+
+  labs(title =
+         "Fig. 20: Diag. de dispersão zona x zona de escolar por classe social")
+```
+<p style="text-align: justify;">Interessante, o desvio (curva vermelha) em relação ao ideal (curva verde) é menor para variável "zona_esc" do que para a variável "zonatra1" - Fig. 16, isto principalmente para as classes sociais mais baixas. Quer dizer, as classes sociais menos favorecidas se deslocam menos para estudar. Como explicar isso?      
+Apesar de não termos escolhido a variável "estuda" na fase de análise univariada, vamos observá-la agora para tentar entender o achado acima.    
+Como as classes sociais estudam? </p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, estuda}
+ggplot(data = subset(OD_2007_v2d, OD_2007_v2d$estuda !="Não") , aes(estuda))+
+  geom_bar()+
+  facet_wrap(~ criterio_b, scales = "free")+
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.3))+
+  labs(title = "Fig. 21: Histograma Estudo por classe social")
+```
+<p style="text-align: justify;">Para as classes mais altas (A1, A2 e B1) a moda é 3º grau/Superior; já para as demais a moda é 1º grau/Fundamental. Aparentemente isso explica na Fig. 20 que quanto menor a classe social menos os moradores precisam sair da sua zona de domicílio para estudar; acontece que nestas classes a escola é predominantemente (moda) o 1º grau/Fundamental que normalmente fica no próprio bairro; já as classes mais rica a moda da escola é 3º grau/Superior que costumam ser mais afastadas.                        
+Com relação aos modais, como cada uma das zonas os utilizam?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Zona_Modal}
+ggplot(data = subset(OD_2007_v2d, !is.na(modoprin)), aes(x = zona))+
+  geom_histogram()+
+  facet_wrap(~ modoprin, scales = "free")+
+  labs(title = "Fig. 22: zona por modal de transporte")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.3))
+```
+<p style="text-align: justify;">Interessante notar: i) a utilização do Metrô mais distribuída na cidade de São Paulo e o Trem na Região Metropolitana; ii) O Táxi na região de maior poder aquisitivo, bem como o automóvel, contudo este tem outro pico por volta da zona 300; e iii) Os dois picos de Bicicleta.        
+Podemos ver isso em detalhes, por exemplo, para a zona 1?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Tabela_Zona_Modal}
+detach("package:plyr", unload = TRUE) 
+OD_2007_v2d %>% group_by(zona, modoprin) %>%
+  summarise(total_zona = n())
+```
+<p style="text-align: justify;">Desconsiderando o modo "a pé"", a zona 1 utiliza predominantemente os modais Metrô (51) e Ônibus Mun. SP (50).             
+Quais os valores máximos e mínimos para os modais?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Tabela_Zona_Modal_Max}
+a <- table(OD_2007_v2d$zona, OD_2007_v2d$modoprin)
+apply(a, 2, max)
+```
+<p style="text-align: justify;">O valor máximo obtido para o modal Automóvel foi 797.</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Tabela_Zona_Modal_Min}
+apply(a, 2, min)
+```
+<p style="text-align: justify;">Já o mínimo foi 5.     
+A que zonas pertencem esses valores?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Zona_Carro_Max}
+b.data <- data.frame(a)
+Zmax_carro <- b.data$Var1[b.data$Freq == 797 & 
+                            b.data$Var2 == "Dirigindo Automóvel"]
+Zmax_carro
+```
+<p style="text-align: justify;">A zona 95(Alto de Pinheiros) foi a zona que mais utilizou automóvel.</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Zona_Carro_Min}
+Zmin_carro <- b.data$Var1[b.data$Freq == 5 & 
+                            b.data$Var2 == "Dirigindo Automóvel"]
+Zmin_carro
+```
+<p style="text-align: justify;">A Zona 3 (Praça João Mendes) foi a zona que menos utilizou automóvel.   
+*Vamos agora explorar as variáveis métricas.*</p>
+```{r echo=TRUE, message=FALSE, warning=FALSE, Plot_VariaveisMetricas}
+pairs.panels(OD_subset_Metrica, main = "Fig. 23: Variáveis métricas")
+```
+<p style="text-align: justify;">Conforme Fig. 23, das três variáveis quantitativas escolhidas, somente há correlação considerável entre as variáveis "duracao" e "distancia", sendo esta igual a 0,65.          
+Como será as distâncias em cada uma das classes sociais?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, plot_distancia_ClasseSocial}
+ggplot(OD_2007_v2d) +
+  geom_boxplot(aes(x = criterio_b, y = distancia, fill = criterio_b))+
+  labs(title=
+         "Fig. 24: Dist. total percorrida por dia, em [m], por classe social")
+```
+<p style="text-align: justify;">As classes C1 até E possuem *outliers* mais afastados; sendo que as classes C1 e D possuem os respondentes que percorrem mais de 80Km por dia.      
+As classes menos abastadas (C1 ~ E) possuem mediana menor que as mais afortunadas, isso parece ir de encontro com o senso comum!          
+Como a duração se relaciona com a distância?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Duracao_Distancia}
+ggplot(aes(x = duracao, y = log(distancia)), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/20)+
+  geom_smooth(method = 'auto', color = 'red')+
+  labs(title = "Fig. 25: Diagramas de dispersão duração x distância")
+```
+<p style="text-align: justify;">Foi aplicado transformação logarítmica no eixo y, com isto, a relação entre essas variáveis parece respeitar uma relação logarítmica.         
+Como seria está equação?     
+- Variável independente (explicativa) é a __duração__ ;            
+- Variável dependente é a __distância__.        
+Aplicando um modelo de [regressão linear](http://ecologia.ib.usp.br/bie5782/doku.php?id=bie5782:03_apostila:06-modelos):</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, ConstruindoModelo}
+modelo_dur_dis <- lm(duracao ~ log(distancia), data = OD_2007_v2d)
+summary(modelo_dur_dis)
+```
+<p style="text-align: justify;">Conforme saída acima (Multiple R-squared:  0.3971), apenas 39,7% da variação da duração pode ser explicada pelo logarítmico da distância.</p>         
+
+## __Análise Bivariada__
+
+### Discuta sobre alguns dos relacionamentos observados nesta parte da investigação. Como os atributos de interesse variaram no conjunto de dados?
+<p style="text-align: justify;"> Para todas as 6 variáveis qualitativas de interesse foi determinado sua moda, sendo a zona do domicílio com maior número de amostras o [Alto de Pinheiros](https://www.google.com.br/maps/place/Alto+de+Pinheiros,+S%C3%A3o+Paulo+-+SP/@-23.5512488,-46.7332202,14z/data=!3m1!4b1!4m5!3m4!1s0x94ce56313d6d9ab3:0xe2cb179b3eed4d75!8m2!3d-23.5537093!4d-46.7088347) (95); das amostras pesquisadas que estudam a maior parte o fez na [Vila Buarque](https://www.google.com.br/maps/place/Vila+Buarque,+S%C3%A3o+Paulo+-+SP/@-23.5418484,-46.6545309,16z/data=!3m1!4b1!4m5!3m4!1s0x94ce58479f01206d:0xbd5b5783afa603ac!8m2!3d-23.5417051!4d-46.650918) (31); dos que trabalham em um só emprego a maioria acontece na [República](https://www.google.com.br/maps/place/Rep%C3%BAblica,+S%C3%A3o+Paulo+-+SP/@-23.5436129,-46.6466192,16z/data=!3m1!4b1!4m5!3m4!1s0x94ce5851c0395f3b:0xf36ea5aa7f8ff302!8m2!3d-23.5451075!4d-46.642778) (5); a classe social da maioria é a B2; sendo o automóvel o principal meio de transporte.            
+O diagrama de dispersão entre as zonas do domicílio (onde os entrevistados vivem) e as zonas de trabalho evidenciam um desequilíbrio, o que faz com que as pessoas tenham que deixar suas regiões para trabalharem em outras, gerando assim necessidade de viagens.
+O mesmo diagrama, mas agora em relação a zona de estudo, também evidencia um desiquilíbrio, mas em uma amplitude menor.       
+Foi possível identificar quais os modais de transporte cada uma das zonas utilizam, propiciando achados tais como os padrões de utilização do automóvel, táxi e bicicleta.    
+O modelo de regressão linear utilizado apresentou r² = 39,7% , isto é, 39,7% da variação duração pode ser explicada pelo logarítmico da variável distância.</p>
+
+### Você observou algum relacionamento interessante entre os outros atributos (os que não são de interesse)?
+<p style="text-align: justify;">Sim , a __variável "estuda"__ foi utilizada para tentar entender porque as classes mais altas (A1, A2 e B1) se deslocam mais para estudas dos que as classes mais baixas. Para as classes mais altas a moda é 3º grau/Superior, enquanto para  as demais a moda é 1º grau/Fundamental. Considerando que normalmente as escolas do  1º grau/Fundamental ficam no próprio bairro, isso pode explicar na Fig. 20:  quanto menor a classe social menos os moradores precisam sair da sua zona para estudar.</p>
+
+### Qual foi o relacionamento mais forte encontrado?
+<p style="text-align: justify;">Para as 3 variáveis quantitativas estudas, as únicas que apresentaram correção considerável foram "duracao" e "distancia", sendo essa correção classificada como [moderada](https://pt.wikipedia.org/wiki/Coeficiente_de_correla%C3%A7%C3%A3o_de_Pearson) (0,65).</p>
+
+# __Seção de Gráficos Multivariados__
+
+<p style="text-align: justify;">Quero ver as variáveis duração x distância em função da classe social.</p>
+```{r echo=TRUE, message=FALSE, warning=FALSE, Duracao_Distancia_ClasseSocial}
+ggplot(aes(x = duracao, y = distancia), data = OD_2007_v2d) +
+  geom_point(aes(color = criterio_b))+
+  scale_color_brewer(type = 'qual')+
+  scale_y_log10()+
+  labs(title = "Fig. 26: Duração x Distância, por classe social")
+```
+<p style="text-align: justify;">Conforme já observado na Fig. 25, está relação parece com uma curva logarítmica.    
+Vamos tentar melhorar a visualização separando por classe social e modal de transporte.</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Duracao_Distancia_Por_ClasseSocial_modal}
+ggplot(aes(x = duracao, y = distancia), data = OD_2007_v2d) +
+  geom_point(aes(color = modoprin))+
+  scale_fill_manual(values = getPalette(colourCount))+
+  facet_wrap(~criterio_b)+
+  scale_y_log10()+
+  labs(title = "Fig. 27: Duração x Distância, por modal")
+```
+<p style="text-align: justify;">A forma da curva (logarítmica) parece ser similar para todas as classes sociais; contudo, é nítido a maior utilização do modal automóvel nas 3 classes mais altas.     
+E se invertermos a ordem, filtrando por modal e classe social?</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Duracao_Distancia_Por_modal_ClasseSocial}
+ggplot(aes(x = duracao, y = distancia), data = OD_2007_v2d) +
+  geom_point(aes(color = criterio_b))+
+  scale_color_brewer(type = 'qual')+
+  facet_wrap(~modoprin)+
+  labs(title =
+         "Fig. 28: Duração x Distância, por classe social e modal de transp.")
+```
+<p style="text-align: justify;">Estranho para o modal "a pé", os dois pontos da classe D de 80Km.   
+Vamos verificar com relação a velocidade (distância/duração).</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, Duracao/Distancia_Por_ClasseSocial}
+ggplot(aes(x = zona, y = (distancia/1000)/(duracao/60)), data = OD_2007_v2d) +
+  geom_point(aes(color = criterio_b))+
+  scale_y_continuous(limits = c(0,120), breaks = seq(0, 120, 25))+
+  facet_wrap(~ modoprin)+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.1))+
+  labs(title =
+    "Fig. 29: Zona x velocidade[Km/h], por classe social e modal de transp.")
+```
+<p style="text-align: justify;">Como no eixo y temos a razão de duas variáveis "distancia" e "duracao", essas foram transformadas para obtenção da velocidades em Km/h. Observa-se que para o automóvel, tanto dirigindo como passageiro, uma alta velocidade. O modo a pé também se destaca, mas lembrando que os próprios respondentes afirmaram que utilizam esse modal para pequenas distâncias. Estranho a velocidade do Táxi, esperaria algo parecido com o automóvel.    
+Aplicando um modelo [regressão não linear](http://www.leg.ufpr.br/~paulojus/embrapa/Rembrapa/Rembrapase30.html) para as variáveis quantitativas "duracao" e"distancia".</P>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, ConstruindoModelo_NaoLinear}
+modelo_dur_dis_nl <- nls(duracao ~ SSlogis(distancia,
+                                           Asym, xmid, scal),
+                         data = OD_2007_v2d)
+summary(modelo_dur_dis_nl)
+```
+<p style="text-align: justify;">Conforme saída, esse modelo apresentou um erro residual padrão (Residual standard error) de 24.36.</p>
+
+## __Análise Multivariada__
+
+### Discuta sobre os relacionamentos observados nesta parte da investigação. Quais atributos que fortaleceram os demais na observação das variáveis de interesse?
+<p style="text-align: justify;"> Apesar da forma da curva das classes sociais serem parecidas no gráfico de "duracao" x "distancia" por modal (Fig. 27), fica evidente uma maciça utilização do automóvel nas 3 classes sociais mais altas. </p>
+
+### Interações surpreendentes e/ou interessantes foram encontradas entre os atributos?
+<p style="text-align: justify;"> Sim, na Fig. 28, para o modal "a pé", os pontos da ordem de 80Km, me pareceram estranhos.</p>
+
+### OPCIONAL: Modelos foram criados usando este conjunto de dados? Discuta sobre os pontos fortes e as limitações do seu modelo.
+<p style="text-align: justify;"> Sim, foi proposto um modelo não linear utilizando a [função logística](https://pt.wikipedia.org/wiki/Fun%C3%A7%C3%A3o_log%C3%ADstica), conforme [Pérez, (2016).](http://topespest.com.br/AST/AST1.html)
+</p>
+
+# __Gráficos Finais e Sumário__
+
+## __Primeiro Gráfico__
+```{r echo=TRUE, message=FALSE, warning=FALSE, Plot_One}
+ClasseSocial <- OD_2007_v2d$criterio_b
+ggplot(data = OD_2007_v2d, aes(x = zonatra1))+
+  geom_density(aes(fill = ClasseSocial), position = "stack")+
+  labs(y = "Densidade", x = "Zona de Trabalho")+
+  ggtitle("KDE da Zona de Trabalho por Classe Social")+
+  scale_y_continuous(breaks = seq(0, 0.04, 0.002))+
+  scale_x_continuous(breaks = seq(0, 460, 20))+
+  theme(plot.title = element_text(family = "calibri", color ="#346332",
+                                  face = "bold", size = 14, hjust = 0.5)) +
+  theme(axis.title = element_text(family = "calibri", color = "#346332",
+                                  face = "bold", size = 16)) +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5))+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.5))+
+  theme(axis.text.y = element_text(angle = 30, hjust = 0.5))
+```
+
+### Descrição do Primeiro Gráfico
+<p style="text-align: justify;"> Esse gráfico explicita o desequilibrio na oferta de oportunidades de trabalho na RMSP, que está fortemente concentrado entre as zonas de trabalho de 20 a 100.   
+Vamos calcular o percentual de empregos nestas zonas:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, freq_total_zonatra1}
+library(plyr)
+freq_zonatra1 <- data.frame(count(OD_2007_v2d$zonatra1))
+freq_total_zonatra1 <- sum(freq_zonatra1$freq[2:449])
+freq_zonatra1_20_100 <- sum(freq_zonatra1$freq[21:101])
+Percent_zonatra1_20_100 = (freq_zonatra1_20_100 / freq_total_zonatra1) * 100
+Percent_zonatra1_20_100
+```
+<p style="text-align: justify;">Isto é, as zonas de trabalho 20 a 100, que correspondem a 17,38% das 460 zonas de trabalho, concentram 34,11% das ofertas de emprego na RMSP.      
+Para uma análise mais apurada, seria intessante levantar qual a população total em cada uma das zonas e verificar quanto da população total representam essas zonas. Contudo, a concentração é evidente, agora quais os efeitos essa concentração provoca?
+</p>
+
+## __Segundo Gráfico__
+```{r echo=TRUE, message=FALSE, warning=FALSE, Plot_Two}
+ggplot(aes(x = zona, y = zonatra1), data = OD_2007_v2d) +
+  geom_jitter(alpha = 1/10)+
+  labs(y = "Zona de Trabalho", x = "Zona do Domicílio")+
+  scale_y_continuous(breaks = seq(0, 460, 20))+
+  scale_x_continuous(breaks = seq(0, 460, 20))+
+  geom_smooth(method = 'lm', color = 'red')+
+  geom_smooth(method = "auto", se = TRUE, fullrange = FALSE, level = 0.95)+
+  geom_abline(xintercept = 460,
+              yintercept = 460,
+              color = 'green',
+              size = 1)+
+  ggtitle(" Diagrama de dispersão Zonas do Domicílio x Trabalho")+
+  theme(plot.title = element_text(family = "calibri", color = "#346332",
+                                  face ="bold", size = 14, hjust = 0.5)) +
+  theme(axis.title = element_text(family = "calibri", color="#346332",
+                                  face="bold", size=16)) +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5))+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.5))+
+  theme(axis.text.y = element_text(angle = 30, hjust = 0.5))
+```
+
+### Descrição do Segundo Gráfico
+<p style="text-align: justify;"> Um dos efeitos provocados pela concentração das oportunidades de trabalho apresentadas no __Primeiro Gráfico__ pode ser observado neste segundo. Num sistema ideal todos os pontos estariam sobre a curva verde, isto é, nenhum trabalhador teria que sair da sua zona de domicílio para trabalhar; isto simplificaria muito os sistemas de transporte e consequentemente o investimento do governamental, sem contar com as economias de combustível, tempo,  número de acidentes, etc.
+A curva em vermelho é um modelo de regressão linear ajustando os pontos, ela nos ajuda a visualizar os desvios da situação ideal (verde). A curva azul é um outro modelo de ajuste de curva, somente mais elaborado, mas com a mesma finalidade da vermelha.
+Como essa necessidade de viagens provocada pelo desequilíbrio impacta as distância percorridas nas diversas classes sociais?</p>
+
+## __Terceiro Gráfico__
+```{r echo=TRUE, message=FALSE, warning=FALSE, Plot_Three}
+ggplot(OD_2007_v2d) +
+  geom_boxplot(aes(x = criterio_b, y = distancia, fill = ClasseSocial), 
+               outlier.colour = NA)+
+  labs(y = "Distância por viagem [m]", x = "Classe Social")+
+  ggtitle("BoxPlot da Distância por Classe Social")+
+  theme_economist()+
+  scale_y_continuous(breaks = seq(0, 15000, 5000))+
+  coord_cartesian(ylim = c(0,15000))+
+  theme(plot.title = element_text(family = "calibri", color = "#346332",
+                                  face ="bold", size = 14, hjust = 0.5)) +
+  theme(axis.title = element_text(family = "calibri", color = "#346332",
+                                  face = "bold", size = 16)) +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5))+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.5))+
+  theme(axis.text.y = element_text(angle = 30, hjust = 0.5))
+```
+
+### Descrição do Terceiro Gráfico
+<p style="text-align: justify;">Neste gráfico é apresentado a distância percorrida nas viagens segmentado nas diversas classes sociais. Observa-se que a mediana da distância para as classes A1 até B2 são muito próximas, bem como para as classes C1 até a E.   
+Vamos ver mais detalhes do comportamento da distância em função das classes sociais:</p>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, plot_distancia_ClasseSocial_Detalhe}
+detach("package:plyr", unload = TRUE) 
+distanciasyClasseSocial <- OD_2007_v2d %>% 
+  group_by(criterio_b) %>% 
+  summarise(mediana = median (as.numeric (distancia), na.rm = TRUE),
+            media = mean (as.numeric (distancia), na.rm = TRUE),
+            DesvPad = sd(distancia, na.rm = TRUE),
+            CV = (DesvPad / media),
+            min = min(as.numeric (distancia), na.rm = TRUE),
+            max = max(as.numeric (distancia), na.rm = TRUE),
+            n = n()) %>%
+  arrange(-mediana)
+head(distanciasyClasseSocial, n = 8)
+```
+<p style="text-align: justify;">Conforme dados acima, em média, a classe B2 (5,4Km) é a que mais se desloca, já no outro oposto a classe D (4,6Km) é a que menos se locomove; contudo, a distância mínima percorrida pela classe D é de 10,1Km e a máxima chega a 82,7Km; isto ilustra a grande quantidade de pontos fora da curva (*outliers*), em todas as classes sociais. Esses *outliers* impactam os valores dos [coeficientes de variação - CV](http://leg.ufpr.br/~shimakur/CE055/node26.html) - todos são maiores que 1 - demonstrando grande variabilidade nos dados, isto porque para todas as classes sociais o desvio padrão é maior que as médias. Quando isso acontece, a mediana é uma medida de dispersão mais indicada que a média. Na Tabela acima, temos que a menor mediana foi obtida para a classe D (1,4Km) e a maior para a classe A1 (3,2Km).</p>
+
+# __Reflexão__
+<p style="text-align: justify;"> Neste trabalho foi realizado a Análise Exploratória dos Dados da Pesquisa O/D com o software R.     
+Inicialmente buscou-se entender as variáveis da base de dados, verificando seus tipos e entendendo seus significados (dicionário dos dados).      
+Partiu-se de análises univaridas de forma a entender melhor as variáveis de forma isolada, na sequência foram selecionadas algumas variáveis da base (6 qualitativas e 3 quantitativas), com o intuito de entender melhor como as variáveis __trabalho__ e __educação__ se comportam nas 460 zonas do domicílio. O interesse por essas variáveis foi do achado que elas __são os principais fatores geradores de demanda__ de transporte na RMSP. Depois foram realizados análises bivariadas e multivariadas, sempre buscando responder a questão inicial: __entender melhor como as variáveis trabalho e educação se comportam nas 460 zonas do domicílio__. Outros achados foram: a região que mais gera empregos fica no entorno da zona 80; com relação a educação, o destaque positivo é para o entorno da região 30; os principais modais das viagens são: a pé, automóvel, ônibus, metrô e trem; a zona 95 foi a zona que mais utilizou automóvel e a zona 3 foi a zona que menos utilizou; somente há correlação considerável entre as variáveis “duracao” e “distancia”, sendo esta igual a 0,65 com r² = 39,7%; a zona do domicílio com maior número de amostras foi a 95; das amostras pesquisadas que estudam a maior parte o fez na zona 31; a zona que mais gera empregos é a 5; a classe social da maioria dos respondentes é a B2; o automóvel é o principal meio de transporte utilizado.    
+A análise permitiu ainda formar uma ideia da complexidade e dos desafios de tentar corrigir os problemas de planejamento urbano na RMSP. A falta de políticas públicas de uso e ocupação do solo causou um grande desequilíbrio demandando altos investimentos em sistemas de transporte. A questão agora seria: gastar os recursos em sistemas de transporte; e/ou investi-los no estimulo da geração de oportunidades de empregos e escolas nas regiões mais carentes?    
+Do ponto de vista do software R, este se mostrou muito promissor respondendo a todas as necessidades de cruzamento de dados, e ainda fornecendo gráficos muito elegantes. Mesmo trabalhando com uma base de dados relativamente grande - como os da Pesquisa O/D - em um computador simples, o desempenho foi muito bom.   
+Como sugestão de trabalhos futuros, temos a utilização do pacote [ggmap](https://journal.r-project.org/archive/2013-1/kahle-wickham.pdf) para visualização geográfica das coordenadas [UTM](https://pt.wikipedia.org/wiki/Universal_Transversa_de_Mercator) empregadas na pesquisa para a localização do domicílio (variáveis co_dom_x e co_dom_y), trabalho (co_tr1_x e co_tr1_y) e escola (co_esc_x e co_esc_y).</p>
